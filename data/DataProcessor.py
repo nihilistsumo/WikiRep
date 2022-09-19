@@ -1,3 +1,9 @@
+import json
+import os
+import gzip
+from tqdm import tqdm
+
+
 class Node:
     def __init__(self, data):
         self.value = data
@@ -108,6 +114,40 @@ def print_nodes(r):
     print(r)
     for n in r.children:
         print_nodes(n)
+
+
+def read_qrels(qrels_path):
+    with open(qrels_path, 'r') as f:
+        page_para_label_dict = {}
+        for l in f:
+            label = l.split(' ')[0]
+            page = label.split('/')[0]
+            para = l.split(' ')[2]
+            if page not in page_para_label_dict.keys():
+                page_para_label_dict[page] = {para: label}
+            else:
+                page_para_label_dict[page][para] = label
+    return page_para_label_dict
+
+
+def read_plaintext_passages_from_wikimark_paragraph_corpus(path_to_wikimark_paragraph_corpus_jsonl_splits, qrels_path):
+    passage_plaintext_dict = {}
+    page_para_label_dict = read_qrels(qrels_path)
+    paras = set()
+    for page in page_para_label_dict.keys():
+        for para in page_para_label_dict[page].keys():
+            paras.add(para)
+    split_file_list = os.listdir(path_to_wikimark_paragraph_corpus_jsonl_splits)
+    for i in tqdm(range(len(split_file_list))):
+        fpath = split_file_list[i]
+        with gzip.open(os.path.join(path_to_wikimark_paragraph_corpus_jsonl_splits, fpath), mode='rt', encoding='utf-8') as f:
+            for l in f:
+                para_obj = json.loads(l)
+                pid = para_obj['para_id']
+                if pid in paras:
+                    ptext = ' '.join([para_fragment['text'] for para_fragment in para_obj['para_body']])
+                    passage_plaintext_dict[pid] = ptext
+    return passage_plaintext_dict
 
 
 def main():
